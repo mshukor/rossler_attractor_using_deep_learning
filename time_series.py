@@ -6,7 +6,7 @@ import torch
 from matplotlib import pyplot as plt
 from tqdm import tqdm
 from rossler_map import RosslerMap
-from train import model
+from train import model, model_rnn, rnn_history
 
 import seaborn as sns
 import scipy
@@ -21,6 +21,34 @@ class Rossler_model:
 
         self.rosler_nn = model
         self.initial_condition = np.array(value.init)
+        self.init = value.init
+
+    def full_traj_rnn(self, ):
+        # run your model to generate the time series with nb_steps
+        # just the y cordinate is necessary.
+
+        ROSSLER_MAP = RosslerMap(delta_t=self.delta_t)
+        traj, t = ROSSLER_MAP.full_traj(rnn_history, self.init)
+        h = self.rosler_nn.init_hidden(1)
+        traj_tensor = torch.from_numpy(traj).float()
+
+        w = traj_tensor[:rnn_history, 1]  # (history, 1)
+        w = w.view((1, w.shape[0], 1))
+        # w = torch.from_numpy(self.initial_condition).float()
+        traj = []
+        for i in tqdm(range(self.nb_steps)):
+
+            w_new, h = self.rosler_nn(w, h)
+            traj.append(w_new[0].item())
+            w[:, -1, :] = w_new
+
+        y = np.array(traj)
+
+        # if your delta_t is different to 1e-2 then interpolate y
+        # in a discrete time array t_new = np.linspace(0,10000, 10000//1e-2)
+        # y_new = interp1d(t_new, your_t, your_y)
+        # I expect that y.shape = (1000000,)
+        return y
 
     def full_traj(self,):
         # run your model to generate the time series with nb_steps
@@ -29,7 +57,7 @@ class Rossler_model:
         w = torch.from_numpy(self.initial_condition).float()
         traj = []
         for i in tqdm(range(self.nb_steps)):
-            w_new = model(w)
+            w_new = self.rosler_nn(w)
             traj.append(w_new[1].item())
             w = w_new
 
@@ -61,6 +89,22 @@ def plot_gt_sample(value):
     plt.plot(y)
     return y
     # plt.show()
+
+def plot_3d(y, i, value):
+
+    Niter = int(value.steps // value.delta_t)
+    ROSSLER_MAP = RosslerMap(delta_t=value.delta_t)
+    INIT = np.array(value.init)
+    traj, t = ROSSLER_MAP.full_traj(Niter, INIT)
+
+    fig1 = plt.figure(i)
+    ax = fig1.gca(projection='3d')
+    ax.plot(traj[:, 0], traj[:, 1], traj[:, 2])
+
+    fig2 = plt.figure(i+1)
+    ax = fig2.gca(projection='3d')
+    ax.plot(traj[:, 0], y, traj[:, 2])
+
 
 
 def compute_stats(x, x_gt, i, name, dt=1e-2):
@@ -127,31 +171,32 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--init", nargs="+", type=float, default=[-5.75, -1.6, 0.02])
-    parser.add_argument("--model_path", type=str, default='basicmodel_360.pth')
+    parser.add_argument("--model_path", type=str, default='lossv0model_0.pth')
     parser.add_argument("--steps", type=float, default=100)
     parser.add_argument('--delta_t', type=str, default=1e-2)
+    parser.add_argument("--rnn", type=bool, default=True)
 
     value = parser.parse_args()
 
 
-    # model = nn.Sequential(nn.Linear(3, 10),
-    #                        nn.ReLU(),
-    #                        nn.Linear(10, 5),
-    #                        nn.ReLU(),
-    #                        nn.Linear(5, 3))
-
+    if value.rnn:
+        Model = model_rnn
+    else:
+        Model = model
     checkpoint = torch.load(value.model_path)
-    model.load_state_dict(checkpoint)
+    Model.load_state_dict(checkpoint)
 
-
-    ROSSLER = Rossler_model(delta_t=value.delta_t, model=model, steps=value.steps)
-
-    y = ROSSLER.full_traj()
+    ROSSLER = Rossler_model(delta_t=value.delta_t, model=Model, steps=value.steps)
+    if value.rnn:
+        y = ROSSLER.full_traj_rnn()
+    else:
+        y = ROSSLER.full_traj()
 
     y_gt = plot_gt_sample(value)
 
     compute_stats(y, y_gt, 0, name=value.model_path, dt=value.delta_t)
 
+    plot_3d(y, 30, value)
 
     fig = plt.figure(20)
     # ax = fig.gca(projection='3d')
