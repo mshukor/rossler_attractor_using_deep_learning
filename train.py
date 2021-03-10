@@ -6,6 +6,8 @@ from rossler_map import RosslerMap
 import numpy as np
 from tqdm import tqdm
 
+from sklearn.preprocessing import MinMaxScaler
+
 model = nn.Sequential(nn.Linear(3, 50),
                            nn.ReLU(),
                            nn.Linear(50, 10),
@@ -51,6 +53,7 @@ def train_rnn(model=None, critirion=None, optimizer=None, epochs=10, dataset_siz
 
     model.to(device)
     model.train()
+    scaler =MinMaxScaler(feature_range=(-1, 1))
 
     for epoch in tqdm(range(epochs)):
 
@@ -59,6 +62,8 @@ def train_rnn(model=None, critirion=None, optimizer=None, epochs=10, dataset_siz
         traj, t = ROSSLER_MAP.full_traj(dataset_size, INIT)
 
         nb_steps = int(len(traj) / rnn_history)
+
+        traj = scaler.fit_transform(traj)
 
         traj_tensor = torch.from_numpy(traj).float()
         h = model.init_hidden(1)
@@ -77,7 +82,7 @@ def train_rnn(model=None, critirion=None, optimizer=None, epochs=10, dataset_siz
 
             out, h = model(batch.to(device), h.to(device))
 
-            loss = critirion(out[0], gt)
+            loss = critirion(out[0], gt.to(device))
 
             loss.backward(retain_graph=False)
             optimizer.step()

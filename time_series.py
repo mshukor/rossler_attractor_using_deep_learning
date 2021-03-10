@@ -11,9 +11,11 @@ from train import model, model_rnn, rnn_history
 import seaborn as sns
 import scipy
 import pandas as pd
+from sklearn.preprocessing import MinMaxScaler
 
+scaler = MinMaxScaler(feature_range=(-1, 1))
 class Rossler_model:
-    def __init__(self, delta_t=1e-2, model=None, steps=10000):
+    def __init__(self, delta_t=1e-2, model=None, steps=10000, scale=False):
 
         self.delta_t = delta_t #if discrete model your delta_t
                               #if continuous model chose one <=1e-2
@@ -22,6 +24,8 @@ class Rossler_model:
         self.rosler_nn = model
         self.initial_condition = np.array(value.init)
         self.init = value.init
+        self.scaler = scaler
+        self.scale = scale
 
     def full_traj_rnn(self, ):
         # run your model to generate the time series with nb_steps
@@ -29,6 +33,9 @@ class Rossler_model:
 
         ROSSLER_MAP = RosslerMap(delta_t=self.delta_t)
         traj, t = ROSSLER_MAP.full_traj(rnn_history, self.init)
+        if self.scale:
+            traj = self.scaler.fit_transform(traj)
+
         h = self.rosler_nn.init_hidden(1)
         traj_tensor = torch.from_numpy(traj).float()
 
@@ -96,6 +103,8 @@ def plot_3d(y, i, value):
     ROSSLER_MAP = RosslerMap(delta_t=value.delta_t)
     INIT = np.array(value.init)
     traj, t = ROSSLER_MAP.full_traj(Niter, INIT)
+    if value.scale:
+        traj = scaler.fit_transform(traj)
 
     fig1 = plt.figure(i)
     ax = fig1.gca(projection='3d')
@@ -175,6 +184,8 @@ if __name__ == '__main__':
     parser.add_argument("--steps", type=float, default=100)
     parser.add_argument('--delta_t', type=str, default=1e-2)
     parser.add_argument("--rnn", type=bool, default=True)
+    parser.add_argument("--scale", type=bool, default=True)
+
 
     value = parser.parse_args()
 
@@ -183,10 +194,17 @@ if __name__ == '__main__':
         Model = model_rnn
     else:
         Model = model
-    checkpoint = torch.load(value.model_path)
+
+    is_cuda = torch.cuda.is_available()
+    if is_cuda:
+        device = torch.device("cuda")
+    else:
+        device = torch.device("cpu")
+
+    checkpoint = torch.load(value.model_path, map_location=device)
     Model.load_state_dict(checkpoint)
 
-    ROSSLER = Rossler_model(delta_t=value.delta_t, model=Model, steps=value.steps)
+    ROSSLER = Rossler_model(delta_t=value.delta_t, model=Model, steps=value.steps, scale=value.scale)
     if value.rnn:
         y = ROSSLER.full_traj_rnn()
     else:
