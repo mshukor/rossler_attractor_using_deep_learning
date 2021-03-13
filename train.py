@@ -45,7 +45,7 @@ model_rnn = GRUNet(input_dim=1, hidden_dim=rnn_hidden, output_dim=1, n_layers=rn
 
 mse_loss = nn.MSELoss()
 
-def train_rnn(model=None, critirion=None, optimizer=None, epochs=10, dataset_size=1000,
+def train_rnn(model=None, criterion=None, optimizer=None, epochs=10, dataset_size=1000,
           batch_size=10, log_interval=20, exp_name='test', device=None):
 
     delta_t = 1e-2
@@ -82,7 +82,7 @@ def train_rnn(model=None, critirion=None, optimizer=None, epochs=10, dataset_siz
 
             out, h = model(batch.to(device), h.to(device))
 
-            loss = critirion(out[0], gt.to(device))
+            loss = criterion(out[0][0], gt.to(device))
 
             loss.backward(retain_graph=False)
             optimizer.step()
@@ -91,12 +91,12 @@ def train_rnn(model=None, critirion=None, optimizer=None, epochs=10, dataset_siz
         if epoch % log_interval == 0:
 
             print('Loss : ', loss.item())
-            model_file = exp_name + 'model_'+ str(epoch) +'.pth'
+            model_file = "models/" + exp_name + '_model_'+ str(epoch) +'.pth'
             print('saving :', model_file)
             torch.save(model.state_dict(), model_file)
 
 
-def train(model=None, critirion=None, optimizer=None, epochs=10, dataset_size=1000,
+def train(model=None, criterion=None, optimizer=None, epochs=10, dataset_size=1000,
           batch_size=10, log_interval=20, exp_name='test', device=None):
 
     delta_t = 1e-2
@@ -120,7 +120,7 @@ def train(model=None, critirion=None, optimizer=None, epochs=10, dataset_size=10
             gt = traj_tensor[i+1:i+1+batch_size]
 
             preds = model(batch)
-            loss = critirion(preds, gt)
+            loss = criterion(preds, gt)
 
             optimizer.zero_grad()
             loss.backward()
@@ -130,7 +130,7 @@ def train(model=None, critirion=None, optimizer=None, epochs=10, dataset_size=10
         if epoch % log_interval == 0:
 
             print('Loss : ', loss.item())
-            model_file = exp_name + 'model_'+ str(epoch) +'.pth'
+            model_file = "models/" + exp_name + '_model_'+ str(epoch) +'.pth'
             print('saving :', model_file)
             torch.save(model.state_dict(), model_file)
 
@@ -181,13 +181,13 @@ if __name__ == '__main__':
     if args.rnn:
         optimizer = torch.optim.Adam(params=model_rnn.parameters(), lr=args.lr)
 
-        train_rnn(model=model_rnn, critirion=loss_v0, epochs=args.epochs,
+        train_rnn(model=model_rnn, criterion=loss_v0, epochs=args.epochs,
               optimizer=optimizer, exp_name=args.exp_name, batch_size=args.batch_size,
               dataset_size=args.dataset_size, log_interval=args.log_interval, device=device)
     else:
         optimizer = torch.optim.Adam(params=model.parameters(), lr=args.lr)
 
-        train(model=model, critirion=loss_v0, epochs=args.epochs,
+        train(model=model, criterion=loss_v0, epochs=args.epochs,
               optimizer=optimizer, exp_name=args.exp_name, batch_size=args.batch_size,
               dataset_size=args.dataset_size, log_interval=args.log_interval, device=device)
 
