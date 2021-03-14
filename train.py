@@ -5,8 +5,10 @@ import argparse
 from rossler_map import RosslerMap
 import numpy as np
 from tqdm import tqdm
+from utils import RDataset
 
 from sklearn.preprocessing import MinMaxScaler
+from torch.utils.data import Dataset, DataLoader, random_split
 
 model = nn.Sequential(nn.Linear(3, 50),
                            nn.ReLU(),
@@ -45,21 +47,43 @@ model_rnn = GRUNet(input_dim=1, hidden_dim=rnn_hidden, output_dim=1, n_layers=rn
 
 mse_loss = nn.MSELoss()
 
+
+
+
+
 def train_rnn(model=None, criterion=None, optimizer=None, epochs=10, dataset_size=1000,
-          batch_size=10, log_interval=20, exp_name='test', device=None):
+          batch_size=10, log_interval=20, exp_name='test', device=None, init=None, history=32):
 
     delta_t = 1e-2
     ROSSLER_MAP = RosslerMap(delta_t=delta_t)
+
+    # INIT = np.array([-5.75, -1.6, 0.02])
+    if not init:
+        init = np.random.rand(3) * 20 - 10
+    # traj, t = ROSSLER_MAP.full_traj(dataset_size, INIT)
+
+    dataset = RDataset(dataset_size,
+                       init,
+                       delta_t,
+                       history,
+                       )
+
+    train_size = int(len(dataset) * 0.8)
+    val_size = len(dataset) - train_size
+    train_dataset, val_dataset = random_split(dataset, [train_size, val_size])
+
+    train_loader = DataLoader(train_dataset,
+                                batch_size=batch_size,
+                                shuffle=True,
+                                num_workers=4,
+                                pin_memory=False)
+
 
     model.to(device)
     model.train()
     scaler =MinMaxScaler(feature_range=(-1, 1))
 
     for epoch in tqdm(range(epochs)):
-
-        # INIT = np.array([-5.75, -1.6, 0.02])
-        INIT = np.random.rand(3)*20 -10
-        traj, t = ROSSLER_MAP.full_traj(dataset_size, INIT)
 
         nb_steps = int(len(traj) / rnn_history)
 
@@ -97,10 +121,31 @@ def train_rnn(model=None, criterion=None, optimizer=None, epochs=10, dataset_siz
 
 
 def train(model=None, criterion=None, optimizer=None, epochs=10, dataset_size=1000,
-          batch_size=10, log_interval=20, exp_name='test', device=None):
+          batch_size=10, log_interval=20, exp_name='test', device=None, init=None, history=32):
 
     delta_t = 1e-2
     ROSSLER_MAP = RosslerMap(delta_t=delta_t)
+
+    # INIT = np.array([-5.75, -1.6, 0.02])
+    if not init:
+        init = np.random.rand(3) * 20 - 10
+    # traj, t = ROSSLER_MAP.full_traj(dataset_size, INIT)
+
+    dataset = RDataset(dataset_size,
+                       init,
+                       delta_t,
+                       history,
+                       )
+
+    train_size = int(len(dataset) * 0.8)
+    val_size = len(dataset) - train_size
+    train_dataset, val_dataset = random_split(dataset, [train_size, val_size])
+
+    train_loader = DataLoader(train_dataset,
+                              batch_size=batch_size,
+                              shuffle=True,
+                              num_workers=4,
+                              pin_memory=False)
 
     for epoch in tqdm(range(epochs)):
 
