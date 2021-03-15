@@ -48,7 +48,8 @@ def train( model=None, criterion=None, optimizer=None, scheduler=None, epochs=10
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-
+        scheduler.step()
+            
         if epoch % log_interval == 0:
             print('Loss : ', loss.item())
             model_file = "models/" + exp_name + '_model_'+ str(epoch) +'.pth'
@@ -61,8 +62,8 @@ def train( model=None, criterion=None, optimizer=None, scheduler=None, epochs=10
 #                              Second Approach Training
 #-------------------------------------------------------------------------------
 def train_rnn( model=None, criterion=None, optimizer=None, scheduler=None, epochs=10, 
-               dataset_size=1000, batch_size=10, log_interval=20, exp_name='test', 
-               device=None, history=0):
+               dataset_size=1000, batch_size=10, log_interval=20, 
+               exp_name='test', device=None, history=32):
 
     delta_t = 1e-2
     ROSSLER_MAP = RosslerMap(delta_t=delta_t)
@@ -81,34 +82,34 @@ def train_rnn( model=None, criterion=None, optimizer=None, scheduler=None, epoch
                               batch_size=batch_size,
                               shuffle=True,
                               num_workers=4,
-                              pin_memory=False)
+                              pin_memory=False,
+                              drop_last=True)
 
     for epoch in tqdm(range(epochs)):
-        h = model.init_hidden(1)
-        
+        h = model.init_hidden(batch_size)
         for (i,batch) in enumerate(train_loader):
             
-            in_traj = batch[:,:history,:].to(device)
-            in_traj = in_traj.view((1, batch.shape[0], 1))
-            gt = batch[:,-1,:].to(device)  # labels are just the same batch but shifted
+            in_traj = batch[:,:history,1].to(device)
+            in_traj = in_traj.view((batch.shape[0], history, -1))
+            gt = batch[:,-1,1].to(device)  # labels are just the same batch but shifted
 
             h = h.data
 
             model.zero_grad()
             # optimizer.zero_grad()
-
+            #print(i,in_traj.shape, h.shape)
             out, h = model(in_traj.to(device), h.to(device))
-            loss = criterion(out[0][0], gt.to(device))
+            loss = criterion(out.view(-1), gt.to(device))
 
             loss.backward(retain_graph=False)
             optimizer.step()
-
+        scheduler.step()
+        
         if epoch % log_interval == 0:
             print('Loss : ', loss.item())
             model_file = "models/" + exp_name + '_model_'+ str(epoch) +'.pth'
             print('saving :', model_file)
             torch.save(model.state_dict(), model_file)
-
 
 if __name__ == '__main__':
 
@@ -157,5 +158,5 @@ if __name__ == '__main__':
                    batch_size=args.batch_size,
                    dataset_size=args.dataset_size, 
                    log_interval=args.log_interval, 
-                   device=device, rnn_history=args.history)
+                   device=device, history=args.history)
 

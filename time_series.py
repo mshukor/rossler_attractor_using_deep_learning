@@ -199,7 +199,10 @@ if __name__ == '__main__':
     is_cuda = torch.cuda.is_available()
     device = torch.device("cuda") if is_cuda else torch.device("cpu")
 
-    Model = My_Model()
+    
+    if value.rnn: Model = GRUNet( input_dim=1, hidden_dim=500, output_dim=1, n_layers=2)
+    else: Model = My_Model()
+    
     checkpoint = torch.load(value.model_path, map_location=device)
     Model.load_state_dict(checkpoint)
 
@@ -236,16 +239,18 @@ if __name__ == '__main__':
     traj[:,1] = y
     ##
     
-    # Compute the Equilibrium Point of the generated map
-    fix_point = newton(Model, Model.batch_model_jacobian, np.array(value.init))
+    ## For the first appraoch
+    if not value.rnn:
+        # Compute the Equilibrium Point of the generated map
+        fix_point = newton(Model, Model.batch_model_jacobian, np.array(value.init))
     
-    error = norm(fix_point - ROSSLER_MAP.equilibrium())
-    print("equilibrium state :", fix_point, ", error : ", error)
-    print()
+        error = norm(fix_point - ROSSLER_MAP.equilibrium())
+        print("equilibrium state :", fix_point, ", error : ", error)
+        print()
     
-    # Compute the Lyapunov Exponent
-    lyap = lyapunov_exponent(traj, Model.batch_model_jacobian, max_it=Niter, 
+        # Compute the Lyapunov Exponent
+        lyap = lyapunov_exponent(traj, Model.batch_model_jacobian, max_it=Niter, 
                                    delta_t=value.delta_t)
-    print("Lyapunov Exponents :", lyap, "with delta t =", value.delta_t)
+        print("Lyapunov Exponents :", lyap, "with delta t =", value.delta_t)
 
     plt.show()
