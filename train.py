@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+from torch.optim.lr_scheduler import StepLR
 from torch.utils.data import Dataset, DataLoader, random_split
 
 import argparse
@@ -14,9 +15,9 @@ from utils import RDataset, loss_v0, loss_v1, loss_v2
 #-------------------------------------------------------------------------------
 #                               First Approach Training
 #-------------------------------------------------------------------------------
-def train(model=None, criterion=None, optimizer=None, epochs=10, dataset_size=1000,
-          batch_size=10, log_interval=20, exp_name='test', device=None, 
-          delta_t=1e-2, history=0):
+def train( model=None, criterion=None, optimizer=None, scheduler=None, epochs=10, 
+           dataset_size=1000, batch_size=10, log_interval=20, exp_name='test', device=None, 
+           delta_t=1e-2, history=0):
     
     model.to(device)
     model.train()
@@ -59,8 +60,9 @@ def train(model=None, criterion=None, optimizer=None, epochs=10, dataset_size=10
 #-------------------------------------------------------------------------------
 #                              Second Approach Training
 #-------------------------------------------------------------------------------
-def train_rnn(model=None, criterion=None, optimizer=None, epochs=10, dataset_size=1000,
-          batch_size=10, log_interval=20, exp_name='test', device=None, history=0):
+def train_rnn( model=None, criterion=None, optimizer=None, scheduler=None, epochs=10, 
+               dataset_size=1000, batch_size=10, log_interval=20, exp_name='test', 
+               device=None, history=0):
 
     delta_t = 1e-2
     ROSSLER_MAP = RosslerMap(delta_t=delta_t)
@@ -121,7 +123,8 @@ if __name__ == '__main__':
     parser.add_argument("--history", type=float, default=0)
     parser.add_argument("--lamda", type=float, default=1)
     parser.add_argument("--rnn", type=bool, default=False)
-
+    parser.add_argument("--decay_ratio", type=float, default=0.8)
+    
     args = parser.parse_args()
 
     # If we have a GPU available, we'll set our device to GPU. 
@@ -135,18 +138,24 @@ if __name__ == '__main__':
     if not args.rnn:
         model = My_Model()
         optimizer = torch.optim.Adam(params=model.parameters(), lr=args.lr)
+        scheduler = StepLR(optimizer, step_size=1, gamma=args.decay_ratio)
         
         train( model=model, criterion=loss_v0, epochs=args.epochs,
-               optimizer=optimizer, exp_name=args.exp_name, batch_size=args.batch_size,
+               optimizer=optimizer, scheduler=scheduler,
+               exp_name=args.exp_name, batch_size=args.batch_size,
                dataset_size=args.dataset_size, log_interval=args.log_interval, 
                device=device, delta_t=args.dt, history=args.history)
     else:
 
         model_rnn = GRUNet( input_dim=1, hidden_dim=500, output_dim=1, n_layers=2)
         optimizer = torch.optim.Adam(params=model_rnn.parameters(), lr=args.lr)
+        scheduler = StepLR(optimizer, step_size=1, gamma=args.decay_ratio)
         
         train_rnn( model=model_rnn, criterion=loss_v0, epochs=args.epochs,
-                   optimizer=optimizer, exp_name=args.exp_name, batch_size=args.batch_size,
-                   dataset_size=args.dataset_size, log_interval=args.log_interval, 
+                   optimizer=optimizer, scheduler=scheduler,
+                   exp_name=args.exp_name, 
+                   batch_size=args.batch_size,
+                   dataset_size=args.dataset_size, 
+                   log_interval=args.log_interval, 
                    device=device, rnn_history=args.history)
 

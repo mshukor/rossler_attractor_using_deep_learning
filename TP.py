@@ -38,13 +38,14 @@ def lyapunov_exponent(traj, jacobian, max_it=1000, delta_t=1e-3):
     
     return  np.mean(np.log(rs), axis=0) / delta_t
 
-def newton(f,jacob,x):
+def newton(f,jacob,x, gen=True):
     #newton raphson method
     tol =1
     while tol>1e-5:
         #WARNING this is true for the jacobian of the continuous system!
         tol = x
-        x = x-solve(jacob(x),f(x, True))
+        if gen: x = x-solve(jacob(x),f(x, True))
+        else: x = x-solve(jacob(x),f(v=x))
         tol = norm(tol-x)
     return x
     
@@ -62,7 +63,7 @@ if __name__ == '__main__':
     ax = fig.gca(projection='3d')
     ax.plot(traj[:,0], traj[:,1], traj[:,2])
     
-    fix_point = newton(ROSSLER_MAP.v_eq,ROSSLER_MAP.jacobian,INIT)
+    fix_point = newton(ROSSLER_MAP.v_eq,ROSSLER_MAP.jacobian,INIT, False)
 
     error = norm(fix_point-ROSSLER_MAP.equilibrium())
     print("equilibrium state :", fix_point, ", error : ", error)
