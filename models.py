@@ -15,15 +15,15 @@ class My_Model(nn.Module):
 
     def forward(self, x, jacob=False):
         if jacob:
-            x = torch.tensor(x).view(1,-1)
+            x = torch.FloatTensor(x).view(1,-1)
             x = self.model(x)
             return x.detach().numpy()
         return self.model(x)
         
     def batch_model_jacobian(self, batch, create_graph=True):
         
-        in_traj = torch.tensor(batch).view(1,-1)
-        print(in_traj)
+        in_traj = torch.FloatTensor(batch).view(1,-1)
+        #print(in_traj)
         in_traj.requires_grad = True
         out = self.model(in_traj)
 

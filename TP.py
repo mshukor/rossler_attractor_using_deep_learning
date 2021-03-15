@@ -15,7 +15,7 @@ def lyapunov_exponent(traj, jacobian, max_it=1000, delta_t=1e-3):
     chk = 0
 
     for i in range(max_it):
-        jacob = jacobian(traj[i,:])
+        jacob = jacobian(traj[i,:]).reshape(n,n)
 
         #WARNING this is true for the jacobian of the continuous system!
         w_next = np.dot(expm(jacob * delta_t),w) 
@@ -43,9 +43,7 @@ def newton(f,jacob,x):
     tol =1
     while tol>1e-5:
         #WARNING this is true for the jacobian of the continuous system!
-        x = x[0]
         tol = x
-        print(jacob(x))
         x = x-solve(jacob(x),f(x, True))
         tol = norm(tol-x)
     return x

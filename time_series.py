@@ -236,11 +236,14 @@ if __name__ == '__main__':
     traj[:,1] = y
     ##
     
-    fix_point = newton(Model, Model.batch_model_jacobian, np.array(value.init).reshape(1,-1))
+    # Compute the Equilibrium Point of the generated map
+    fix_point = newton(Model, Model.batch_model_jacobian, np.array(value.init))
     
     error = norm(fix_point - ROSSLER_MAP.equilibrium())
     print("equilibrium state :", fix_point, ", error : ", error)
-
+    print()
+    
+    # Compute the Lyapunov Exponent
     lyap = lyapunov_exponent(traj, Model.batch_model_jacobian, max_it=Niter, 
                                    delta_t=value.delta_t)
     print("Lyapunov Exponents :", lyap, "with delta t =", value.delta_t)
